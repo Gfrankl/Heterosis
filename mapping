@@ -1,0 +1,357 @@
+#Runs of IVF (maternal brahman and materal angus embryos) were performed separately. Subsquent sequecing, trimming ,and mapping were perfomed separatley. 
+
+#below is code used for maternal brahman embryos
+
+#First need to merge lanes while keeping R1 and R2 separate
+
+#!/bin/bash
+#SBATCH -J combine_r1_r2
+#SBATCH -A ACF-UTK0171
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=48
+#SBATCH --partition=condo-ut-genomics
+#SBATCH --time=0-01:00:00
+#SBATCH --error=job.e%J
+#SBATCH --output=job.o%J
+#SBATCH --qos=genomics
+#SBATCH --mail-type=BEGIN,END,FAILs
+#SBATCH --mail-user=gfrankl2@utk.edu
+
+for i in $(find ./ -type f -name "*.fastq.gz" | while read F; do basename $F | rev | cut -c 22- | rev; done | sort | uniq)
+        do echo "MERGING R1 READS FOR $i"
+        cat "$i"_L00*_R1_001.fastq.gz > "$i"_ME_L001_R1_001.fastq.gz
+        echo "MERGING R2 READS FOR $i"
+        cat "$i"_L00*_R2_001.fastq.gz > "$i"_ME_L001_R2_001.fastq.gz
+done
+
+#the following steps were perfomed using a snakemake pipeline
+
+## These are my sample IDs
+sample = ["RowanHetFL_1A10_S67", "RowanHetFL_1A12_S82", "RowanHetFL_1A2_S8", "RowanHetFL_1A3_S16", "RowanHetFL_1A4_S24", "RowanHetFL_1A5_S30", "RowanHetFL_1A6_S37", "RowanHetFL_1A7_S45", "RowanHetFL_1B10_S68", "RowanHetFL_1B11_S75", "RowanHetFL_1B1_S1", "RowanHetFL_1B2_S9", "RowanHetFL_1B4_S25", "RowanHetFL_1B5_S31", "RowanHetFL_1B6_S38", "RowanHetFL_1B7_S46", "RowanHetFL_1B8_S52", "RowanHetFL_1B9_S60", "RowanHetFL_1C10_S69", "RowanHetFL_1C11_S76", "RowanHetFL_1C12_S84", "RowanHetFL_1C1_S2", "RowanHetFL_1C2_S10", "RowanHetFL_1C3_S18", "RowanHetFL_1C4_S26", "RowanHetFL_1C6_S39", "RowanHetFL_1C7_S47", "RowanHetFL_1C8_S53", "RowanHetFL_1C9_S61", "RowanHetFL_1D10_S70", "RowanHetFL_1D11_S77", "RowanHetFL_1D12_S85", "RowanHetFL_1D1_S3", "RowanHetFL_1D2_S11", "RowanHetFL_1D3_S19", "RowanHetFL_1D5_S32", "RowanHetFL_1D6_S40", "RowanHetFL_1D7_S48", "RowanHetFL_1D8_S54", "RowanHetFL_1D9_S62", "RowanHetFL_1E10_S71", "RowanHetFL_1E11_S78", "RowanHetFL_1E12_S86", "RowanHetFL_1E1_S4", "RowanHetFL_1E2_S12", "RowanHetFL_1E3_S20", "RowanHetFL_1E4_S28", "RowanHetFL_1E5_S33", "RowanHetFL_1E6_S41", "RowanHetFL_1E8_S55", "RowanHetFL_1E9_S63", "RowanHetFL_1F11_S79", "RowanHetFL_1F12_S87", "RowanHetFL_1F1_S5", "RowanHetFL_1F2_S13", "RowanHetFL_1F3_S21", "RowanHetFL_1F5_S34", "RowanHetFL_1F6_S42", "RowanHetFL_1F7_S49", "RowanHetFL_1F8_S56", "RowanHetFL_1F9_S64", "RowanHetFL_1G10_S73", "RowanHetFL_1G12_S88", "RowanHetFL_1G1_S6", "RowanHetFL_1G2_S14", "RowanHetFL_1G3_S22", "RowanHetFL_1G4_S29", "RowanHetFL_1G5_S35", "RowanHetFL_1G6_S43", "RowanHetFL_1G7_S50", "RowanHetFL_1G8_S57", "RowanHetFL_1G9_S65", "RowanHetFL_1H10_S74", "RowanHetFL_1H11_S81", "RowanHetFL_1H12_S89", "RowanHetFL_1H1_S7", "RowanHetFL_1H2_S15", "RowanHetFL_1H5_S36", "RowanHetFL_1H6_S44", "RowanHetFL_1H8_S58", "RowanHetFL_1H9_S66", "RowanHetFL_2A10_S161", "RowanHetFL_2A11_S169", "RowanHetFL_2A12_S177", "RowanHetFL_2A1_S90", "RowanHetFL_2A2_S98", "RowanHetFL_2A3_S106", "RowanHetFL_2A4_S114", "RowanHetFL_2A6_S130", "RowanHetFL_2A7_S137", "RowanHetFL_2A8_S145", "RowanHetFL_2A9_S153", "RowanHetFL_2B11_S170", "RowanHetFL_2B12_S178", "RowanHetFL_2B1_S91", "RowanHetFL_2B2_S99", "RowanHetFL_2B3_S107", "RowanHetFL_2B4_S115", "RowanHetFL_2B5_S123", "RowanHetFL_2B6_S131", "RowanHetFL_2B7_S138", "RowanHetFL_2B8_S146", "RowanHetFL_2B9_S154", "RowanHetFL_2C10_S163", "RowanHetFL_2C11_S171", "RowanHetFL_2C12_S179", "RowanHetFL_2C2_S100", "RowanHetFL_2C3_S108", "RowanHetFL_2C4_S116", "RowanHetFL_2C5_S124", "RowanHetFL_2C6_S132", "RowanHetFL_2C7_S139", "RowanHetFL_2C8_S147", "RowanHetFL_2C9_S155", "RowanHetFL_2D10_S164", "RowanHetFL_2D11_S172", "RowanHetFL_2D12_S180", "RowanHetFL_2D1_S93", "RowanHetFL_2D2_S101", "RowanHetFL_2D3_S109", "RowanHetFL_2D4_S117", "RowanHetFL_2D6_S133", "RowanHetFL_2D7_S140", "RowanHetFL_2D8_S148", "RowanHetFL_2D9_S156", "RowanHetFL_2E10_S165", "RowanHetFL_2E11_S173", "RowanHetFL_2E12_S181", "RowanHetFL_2E1_S94", "RowanHetFL_2E2_S102", "RowanHetFL_2E3_S110", "RowanHetFL_2E4_S118", "RowanHetFL_2E5_S126", "RowanHetFL_2E6_S134", "RowanHetFL_2E7_S141", "RowanHetFL_2E8_S149", "RowanHetFL_2E9_S157", "RowanHetFL_2F10_S166", "RowanHetFL_2F11_S174", "RowanHetFL_2F12_S182", "RowanHetFL_2F1_S95", "RowanHetFL_2F2_S103", "RowanHetFL_2F3_S111", "RowanHetFL_2F4_S119", "RowanHetFL_2F5_S127", "RowanHetFL_2F6_S135", "RowanHetFL_2F7_S142", "RowanHetFL_2F9_S158", "RowanHetFL_2G10_S167", "RowanHetFL_2G11_S175", "RowanHetFL_2G12_S183", "RowanHetFL_2G1_S96", "RowanHetFL_2G2_S104", "RowanHetFL_2G3_S112", "RowanHetFL_2G4_S120", "RowanHetFL_2G5_S128", "RowanHetFL_2G7_S143", "RowanHetFL_2G8_S151", "RowanHetFL_2G9_S159", "RowanHetFL_2H10_S168", "RowanHetFL_2H11_S176", "RowanHetFL_2H1_S97", "RowanHetFL_2H2_S105", "RowanHetFL_2H3_S113", "RowanHetFL_2H4_S121", "RowanHetFL_2H5_S129", "RowanHetFL_2H6_S136", "RowanHetFL_2H7_S144", "RowanHetFL_2H8_S152", "RowanHetFL_2H9_S160"]
+sjdb = 100
+
+## I used this constrain to constrain the analysis to these samples only.
+wildcard_constraints:
+        sample = '|'.join([re.escape(x) for x in sample])
+
+## My desired output files 
+rule the_end:
+    input:
+        expand("3_star_mapped/{sample}/{sample}.ReadsPerGene.out.tab", sample=sample),
+        "fastqc/multiqc_report.html",
+        "fastqc2/multiqc_report.html"
+    threads: 1
+        params:
+                runtime="0:01:00",
+                job_name="the_end"
+
+## Quality control with Trimmomatic
+rule trim:
+    input:
+        "mergeddata/{sample}_ME_L001_R1_001.fastq.gz",
+        "mergeddata/{sample}_ME_L001_R2_001.fastq.gz"
+    output:
+        fqp1=temp("2_trimmomatic/{sample}.R1.paired.trimmed.fastq.gz"),
+        fqu1=temp("2_trimmomatic/{sample}.R1.unpaired.trimmed.fastq.gz"),
+        fqp2=temp("2_trimmomatic/{sample}.R2.paired.trimmed.fastq.gz"),
+        fqu2=temp("2_trimmomatic/{sample}.R2.unpaired.trimmed.fastq.gz"),
+       log="2_trimmomatic/log/{sample}.stats"
+    threads: 8
+    params:
+        runtime="01:00:00",
+        job_name="trim.{sample}"
+    shell:
+        "trimmomatic PE {input} {output.fqp1} {output.fqu1} {output.fqp2} {output.fqu2} "
+        "ILLUMINACLIP:adapters/adapters_2.fa:2:30:7 "
+        "LEADING:5 TRAILING:5 SLIDINGWINDOW:7:30 "
+        "MINLEN:30 -threads {threads} "
+        "-summary {output.log} "
+rule QC1:
+    input:
+        "mergeddata/{sample}_ME_L001_R1_001.fastq.gz",
+        "mergeddata/{sample}_ME_L001_R2_001.fastq.gz"
+    output:
+        "fastqc/{sample}_ME_L001_R1_001_fastqc.html",
+        "fastqc/{sample}_ME_L001_R2_001_fastqc.html",
+        temp("fastqc/{sample}_ME_L001_R1_001_fastqc.zip"),
+        temp("fastqc/{sample}_ME_L001_R2_001_fastqc.zip")
+    threads: 16
+    params:
+        runtime="01:00:00",
+        job_name="QC.{sample}"
+    shell:
+        "fastqc {input} -o fastqc --noextract -t {threads}"
+
+rule MQC1:
+    input:
+        expand("fastqc/{sample}_ME_L001_{R}_001_fastqc.{ext}", sample=sample, R=["R1","R2"], ext=["html","zip"])
+    output:
+        "fastqc/multiqc_report.html",
+    threads: 8
+    params:
+        runtime="01:00:00",
+        job_name="MQC"
+    shell:
+        "multiqc -f -o fastqc -z fastqc"
+rule QC2:
+    input:
+        fqp1="2_trimmomatic/{sample}.R1.paired.trimmed.fastq.gz",
+        fqp2="2_trimmomatic/{sample}.R2.paired.trimmed.fastq.gz"
+    output:
+        "fastqc2/{sample}.R1.paired.trimmed_fastqc.html",
+        "fastqc2/{sample}.R2.paired.trimmed_fastqc.html",
+        temp("fastqc2/{sample}.R1.paired.trimmed_fastqc.zip"),
+        temp("fastqc2/{sample}.R2.paired.trimmed_fastqc.zip")
+    threads: 8
+    params:
+        runtime="01:00:00",
+        job_name="QC2.{sample}"
+    shell:
+        "fastqc {input} -o fastqc2 --noextract -t {threads}"
+    
+rule MQC2:
+    input:
+        expand("fastqc2/{sample}.{R}.paired.trimmed_fastqc.{ext}", sample=sample, R=["R1","R2"], ext=["html","zip"])
+    output:
+        "fastqc2/multiqc_report.html",
+    threads: 8
+    params:
+        runtime="01:00:00",
+        job_name="MQC2"
+    shell:
+        "multiqc -f -o fastqc2 -z fastqc2"
+
+## Indexing the genome 
+rule star_idx:
+    input:
+        fna="genome/GCF_002263795.2_ARS-UCD2.0_genomic.fna",
+        gtf="genome/GCF_002263795.2_ARS-UCD2.0_genomic.gtf"
+    output:
+        directory("genome/starIndex/")
+    threads: 32
+    params:
+        runtime="24:00:00",
+        job_name="star_idx_genome"
+    shell:
+        "mkdir -p {output}; "
+        "STAR --runThreadN {threads} "
+        "--runMode genomeGenerate "
+        "--genomeDir {output} "
+        "--genomeFastaFiles {input.fna} "
+        "--sjdbGTFfile {input.gtf} "
+        "--sjdbOverhang {sjdb} "
+        "--outTmpDir /lustre/isaac/proj/UTK0171/gfrankl2/angusTN/workflow/STARtmp"
+
+## Mapping each sample to the genome
+rule star_mapping:
+    input:
+        fqp1="2_trimmomatic/{sample}.R1.paired.trimmed.fastq.gz",
+        fqp2="2_trimmomatic/{sample}.R2.paired.trimmed.fastq.gz"
+        genome_idx="genome/starIndex/",
+        gtf="genome/ars_2.0.gtf"
+    output:
+        "3_star_mapped/{sample}/{sample}.ReadsPerGene.out.tab",
+        "3_star_mapped/{sample}/{sample}.Log.final.out",
+        temp("3_star_mapped/{sample}/{sample}.SJ.out.tab"),
+        temp("3_star_mapped/{sample}/{sample}.Log.out"),
+        "3_star_mapped/{sample}/{sample}.Aligned.sortedByCoord.out.bam",
+        temp("3_star_mapped/{sample}/{sample}.Log.progress.out"),
+        temp(directory("3_star_mapped/{sample}/{sample}._STARgenome"))
+    threads: 16
+    params:
+        runtime="02:00:00",
+        job_name="star_mapping.{sample}",
+        out_prefix="3_star_mapped/{sample}/{sample}."
+    shell:
+        "STAR --genomeDir {input.genome_idx} "
+        "--runThreadN {threads} "
+        "--readFilesIn {input.fqp1} {input.fqp2} "
+        "--readFilesCommand zcat "
+        "--sjdbGTFfile {input.gtf} "
+        "--outFileNamePrefix {params.out_prefix} "
+        "--outSAMtype BAM SortedByCoordinate "
+        "--outSAMunmapped Within "
+        "--outSAMattributes Standard "
+        "--quantMode GeneCounts "
+        "--sjdbOverhang {sjdb}"
+
+#jobs were submitted in screen using the following script 
+
+snakemake --snakefile workflow/Snakefile_brahman --cluster "sbatch -A ACF-UTK0171 -p condo-trowan1,condo-utia -q condo -N 1 -c {threads} -t {params.runtime} -o $PWD/log/slurm-%j.out --mail-type=FAIL --mail-user=gfrankl2@utk.edu " --use-conda --conda-frontend conda -R $(snakemake --list-code-changes --snakefile workflow/Snakefile_brahman) --rerun-incomplete --keep-going -p --jobs 10 --latency-wait 120 --rerun-incomplete
+
+
+#Below is code used for materanl angus embryos 
+
+#!/bin/bash
+#SBATCH -J combine_r1_r2
+#SBATCH -A ACF-UTK0171
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=48
+#SBATCH --partition=condo-ut-genomics
+#SBATCH --time=0-01:00:00
+#SBATCH --error=job.e%J
+#SBATCH --output=job.o%J
+#SBATCH --qos=genomics
+#SBATCH --mail-type=BEGIN,END,FAILs
+#SBATCH --mail-user=gfrankl2@utk.edu
+
+for i in $(find ./ -type f -name "*.fastq.gz" | while read F; do basename $F | rev | cut -c 22- | rev; done | sort | uniq)
+        do echo "MERGING R1 READS FOR $i"
+        cat "$i"_L00*_R1_001.fastq.gz > "$i"_ME_L001_R1_001.fastq.gz
+        echo "MERGING R2 READS FOR $i"
+        cat "$i"_L00*_R2_001.fastq.gz > "$i"_ME_L001_R2_001.fastq.gz
+done
+
+## These are my sample IDs
+sample = ["1A10_RowanHetDecFL2_2024_S70", "1A11_RowanHetDecFL2_2024_S76", "1A12_RowanHetDecFL2_2024_S84", "1A1_RowanHetDecFL2_2024_S1", "1A2_RowanHetDecFL2_2024_S9", "1A3_RowanHetDecFL2_2024_S17", "1A5_RowanHetDecFL2_2024_S31", "1A6_RowanHetDecFL2_2024_S39", "1A7_RowanHetDecFL2_2024_S47", "1A8_RowanHetDecFL2_2024_S54", "1A9_RowanHetDecFL2_2024_S62", "1B10_RowanHetDecFL2_2024_S71", "1B11_RowanHetDecFL2_2024_S77", "1B12_RowanHetDecFL2_2024_S85", "1B1_RowanHetDecFL2_2024_S2", "1B2_RowanHetDecFL2_2024_S10", "1B3_RowanHetDecFL2_2024_S18", "1B5_RowanHetDecFL2_2024_S32", "1B6_RowanHetDecFL2_2024_S40", "1B7_RowanHetDecFL2_2024_S48", "1B8_RowanHetDecFL2_2024_S55", "1B9_RowanHetDecFL2_2024_S63", "1C10_RowanHetDecFL2_2024_S72", "1C11_RowanHetDecFL2_2024_S78", "1C12_RowanHetDecFL2_2024_S86", "1C1_RowanHetDecFL2_2024_S3", "1C2_RowanHetDecFL2_2024_S11", "1C3_RowanHetDecFL2_2024_S19", "1C4_RowanHetDecFL2_2024_S25", "1C5_RowanHetDecFL2_2024_S33", "1C6_RowanHetDecFL2_2024_S41", "1C7_RowanHetDecFL2_2024_S49", "1C8_RowanHetDecFL2_2024_S56", "1C9_RowanHetDecFL2_2024_S64", "1D10_RowanHetDecFL2_2024_S73", "1D11_RowanHetDecFL2_2024_S79", "1D12_RowanHetDecFL2_2024_S87", "1D1_RowanHetDecFL2_2024_S4", "1D2_RowanHetDecFL2_2024_S12", "1D3_RowanHetDecFL2_2024_S20", "1D4_RowanHetDecFL2_2024_S26", "1D5_RowanHetDecFL2_2024_S34", "1D6_RowanHetDecFL2_2024_S42", "1D7_RowanHetDecFL2_2024_S50", "1D8_RowanHetDecFL2_2024_S57", "1D9_RowanHetDecFL2_2024_S65", "1E11_RowanHetDecFL2_2024_S80", "1E12_RowanHetDecFL2_2024_S88", "1E1_RowanHetDecFL2_2024_S5", "1E2_RowanHetDecFL2_2024_S13", "1E3_RowanHetDecFL2_2024_S21", "1E4_RowanHetDecFL2_2024_S27", "1E5_RowanHetDecFL2_2024_S35", "1E6_RowanHetDecFL2_2024_S43", "1E7_RowanHetDecFL2_2024_S51", "1E8_RowanHetDecFL2_2024_S58", "1E9_RowanHetDecFL2_2024_S66", "1F10_RowanHetDecFL2_2024_S74", "1F11_RowanHetDecFL2_2024_S81", "1F12_RowanHetDecFL2_2024_S89", "1F1_RowanHetDecFL2_2024_S6", "1F2_RowanHetDecFL2_2024_S14", "1F3_RowanHetDecFL2_2024_S22", "1F4_RowanHetDecFL2_2024_S28", "1F5_RowanHetDecFL2_2024_S36", "1F6_RowanHetDecFL2_2024_S44", "1F7_RowanHetDecFL2_2024_S52", "1F8_RowanHetDecFL2_2024_S59", "1F9_RowanHetDecFL2_2024_S67", "1G11_RowanHetDecFL2_2024_S82", "1G12_RowanHetDecFL2_2024_S90", "1G1_RowanHetDecFL2_2024_S7", "1G2_RowanHetDecFL2_2024_S15", "1G3_RowanHetDecFL2_2024_S23", "1G4_RowanHetDecFL2_2024_S29", "1G5_RowanHetDecFL2_2024_S37", "1G6_RowanHetDecFL2_2024_S45", "1G7_RowanHetDecFL2_2024_S53", "1G8_RowanHetDecFL2_2024_S60", "1G9_RowanHetDecFL2_2024_S68", "1H10_RowanHetDecFL2_2024_S75", "1H11_RowanHetDecFL2_2024_S83", "1H12_RowanHetDecFL2_2024_S91", "1H1_RowanHetDecFL2_2024_S8", "1H2_RowanHetDecFL2_2024_S16", "1H3_RowanHetDecFL2_2024_S24", "1H4_RowanHetDecFL2_2024_S30", "1H5_RowanHetDecFL2_2024_S38", "1H6_RowanHetDecFL2_2024_S46", "1H8_RowanHetDecFL2_2024_S61", "1H9_RowanHetDecFL2_2024_S69", "2A1_RowanHetDecFL2_2024_S92", "2A2_RowanHetDecFL2_2024_S100", "2A3_RowanHetDecFL2_2024_S108", "2A4_RowanHetDecFL2_2024_S115", "2A5_RowanHetDecFL2_2024_S123", "2A6_RowanHetDecFL2_2024_S131", "2B1_RowanHetDecFL2_2024_S93", "2B2_RowanHetDecFL2_2024_S101", "2B4_RowanHetDecFL2_2024_S116", "2B5_RowanHetDecFL2_2024_S124", "2B6_RowanHetDecFL2_2024_S132", "2C1_RowanHetDecFL2_2024_S94", "2C2_RowanHetDecFL2_2024_S102", "2C3_RowanHetDecFL2_2024_S109", "2C4_RowanHetDecFL2_2024_S117", "2C5_RowanHetDecFL2_2024_S125", "2D1_RowanHetDecFL2_2024_S95", "2D2_RowanHetDecFL2_2024_S103", "2D3_RowanHetDecFL2_2024_S110", "2D4_RowanHetDecFL2_2024_S118", "2D5_RowanHetDecFL2_2024_S126", "2D6_RowanHetDecFL2_2024_S133", "2E1_RowanHetDecFL2_2024_S96", "2E2_RowanHetDecFL2_2024_S104", "2E3_RowanHetDecFL2_2024_S111", "2E4_RowanHetDecFL2_2024_S119", "2E5_RowanHetDecFL2_2024_S127", "2E6_RowanHetDecFL2_2024_S134", "2F1_RowanHetDecFL2_2024_S97", "2F2_RowanHetDecFL2_2024_S105", "2F3_RowanHetDecFL2_2024_S112", "2F4_RowanHetDecFL2_2024_S120", "2F5_RowanHetDecFL2_2024_S128", "2F6_RowanHetDecFL2_2024_S135", "2G1_RowanHetDecFL2_2024_S98", "2G2_RowanHetDecFL2_2024_S106", "2G3_RowanHetDecFL2_2024_S113", "2G4_RowanHetDecFL2_2024_S121", "2G5_RowanHetDecFL2_2024_S129", "2G6_RowanHetDecFL2_2024_S136", "2H1_RowanHetDecFL2_2024_S99", "2H2_RowanHetDecFL2_2024_S107", "2H3_RowanHetDecFL2_2024_S114", "2H4_RowanHetDecFL2_2024_S122", "2H5_RowanHetDecFL2_2024_S130"]
+sjdb = 100
+
+## I used this constrain to constrain the analysis to these samples only.
+wildcard_constraints:
+        sample = '|'.join([re.escape(x) for x in sample])
+
+## My desired output files 
+rule the_end:
+    input:
+        expand("3_star_mapped/{sample}/{sample}.ReadsPerGene.out.tab", sample=sample),
+        "fastqc/multiqc_report.html",
+        "fastqc2/multiqc_report.html"
+    threads: 1
+        params:
+                runtime="0:01:00",
+                job_name="the_end"
+
+## Quality control with Trimmomatic
+rule trim:
+    input:
+        "mergeddata/{sample}_ME_L001_R1_001.fastq.gz",
+        "mergeddata/{sample}_ME_L001_R2_001.fastq.gz"
+    output:
+        fqp1=temp("2_trimmomatic/{sample}.R1.paired.trimmed.fastq.gz"),
+        fqu1=temp("2_trimmomatic/{sample}.R1.unpaired.trimmed.fastq.gz"),
+        fqp2=temp("2_trimmomatic/{sample}.R2.paired.trimmed.fastq.gz"),
+        fqu2=temp("2_trimmomatic/{sample}.R2.unpaired.trimmed.fastq.gz"),
+        log="2_trimmomatic/log/{sample}.stats"
+    threads: 8
+    params:
+        runtime="01:00:00",
+        job_name="trim.{sample}"
+    shell:
+        "trimmomatic PE {input} {output.fqp1} {output.fqu1} {output.fqp2} {output.fqu2} "
+        "ILLUMINACLIP:adapters/adapters_2.fa:2:30:7 "
+        "LEADING:5 TRAILING:5 SLIDINGWINDOW:7:30 "
+        "MINLEN:30 -threads {threads} "
+        "-summary {output.log} "
+rule QC1:
+    input:
+        "mergeddata/{sample}_ME_L001_R1_001.fastq.gz",
+        "mergeddata/{sample}_ME_L001_R2_001.fastq.gz"
+    output:
+        "fastqc/{sample}_ME_L001_R1_001_fastqc.html",
+        "fastqc/{sample}_ME_L001_R2_001_fastqc.html",
+        temp("fastqc/{sample}_ME_L001_R1_001_fastqc.zip"),
+        temp("fastqc/{sample}_ME_L001_R2_001_fastqc.zip")
+    threads: 16
+    params:
+        runtime="01:00:00",
+        job_name="QC.{sample}"
+    shell:
+        "fastqc {input} -o fastqc --noextract -t {threads}"
+
+rule MQC1:
+    input:
+        expand("fastqc/{sample}_ME_L001_{R}_001_fastqc.{ext}", sample=sample, R=["R1","R2"], ext=["html","zip"])
+    output:
+        "fastqc/multiqc_report.html",
+    threads: 8
+    params:
+        runtime="01:00:00",
+        job_name="MQC"
+    shell:
+        "multiqc -f -o fastqc -z fastqc"
+rule QC2:
+    input:
+        fqp1="2_trimmomatic/{sample}.R1.paired.trimmed.fastq.gz",
+        fqp2="2_trimmomatic/{sample}.R2.paired.trimmed.fastq.gz"
+    output:
+        "fastqc2/{sample}.R1.paired.trimmed_fastqc.html",
+        "fastqc2/{sample}.R2.paired.trimmed_fastqc.html",
+        temp("fastqc2/{sample}.R1.paired.trimmed_fastqc.zip"),
+        temp("fastqc2/{sample}.R2.paired.trimmed_fastqc.zip")
+    threads: 8
+    params:
+        runtime="01:00:00",
+        job_name="QC2.{sample}"
+    shell:
+        "fastqc {input} -o fastqc2 --noextract -t {threads}"
+    
+rule MQC2:
+    input:
+        expand("fastqc2/{sample}.{R}.paired.trimmed_fastqc.{ext}", sample=sample, R=["R1","R2"], ext=["html","zip"])
+    output:
+        "fastqc2/multiqc_report.html",
+    threads: 8
+    params:
+        runtime="01:00:00",
+        job_name="MQC2"
+    shell:
+        "multiqc -f -o fastqc2 -z fastqc2"
+
+## Indexing the genome 
+rule star_idx:
+    input:
+        fna="genome/GCF_002263795.2_ARS-UCD2.0_genomic.fna",
+        gtf="genome/GCF_002263795.2_ARS-UCD2.0_genomic.gtf"
+    output:
+        directory("genome/starIndex/")
+    threads: 32
+    params:
+        runtime="24:00:00",
+        job_name="star_idx_genome"
+    shell:
+        "mkdir -p {output}; "
+        "STAR --runThreadN {threads} "
+        "--runMode genomeGenerate "
+        "--genomeDir {output} "
+        "--genomeFastaFiles {input.fna} "
+        "--sjdbGTFfile {input.gtf} "
+        "--sjdbOverhang {sjdb} "
+        "--outTmpDir /lustre/isaac/proj/UTK0171/gfrankl2/angusTN/workflow/STARtmp"
+
+## Mapping each sample to the genome
+rule star_mapping:
+    input:
+        fqp1="2_trimmomatic/{sample}.R1.paired.trimmed.fastq.gz",
+        fqp2="2_trimmomatic/{sample}.R2.paired.trimmed.fastq.gz"
+        genome_idx="genome/starIndex/",
+        gtf="genome/ars_2.0.gtf"
+    output:
+        "3_star_mapped/{sample}/{sample}.ReadsPerGene.out.tab",
+        "3_star_mapped/{sample}/{sample}.Log.final.out",
+        temp("3_star_mapped/{sample}/{sample}.SJ.out.tab"),
+        temp("3_star_mapped/{sample}/{sample}.Log.out"),
+        "3_star_mapped/{sample}/{sample}.Aligned.sortedByCoord.out.bam",
+        temp("3_star_mapped/{sample}/{sample}.Log.progress.out"),
+        temp(directory("3_star_mapped/{sample}/{sample}._STARgenome"))
+    threads: 16
+    params:
+        runtime="02:00:00",
+        job_name="star_mapping.{sample}",
+        out_prefix="3_star_mapped/{sample}/{sample}."
+    shell:
+        "STAR --genomeDir {input.genome_idx} "
+        "--runThreadN {threads} "
+        "--readFilesIn {input.fqp1} {input.fqp2} "
+        "--readFilesCommand zcat "
+        "--sjdbGTFfile {input.gtf} "
+        "--outFileNamePrefix {params.out_prefix} "
+        "--outSAMtype BAM SortedByCoordinate "
+        "--outSAMunmapped Within "
+        "--outSAMattributes Standard "
+        "--quantMode GeneCounts "
+        "--sjdbOverhang {sjdb}"
+
+#jobs were submitted in screen using the following script 
+
+snakemake --snakefile workflow/Snakefile_angus --cluster "sbatch -A ACF-UTK0171 -p condo-trowan1,condo-utia -q condo -N 1 -c {threads} -t {params.runtime} -o $PWD/log/slurm-%j.out --mail-type=FAIL --mail-user=gfrankl2@utk.edu " --use-conda --conda-frontend conda -R $(snakemake --list-code-changes --snakefile workflow/Snakefile_angus) --rerun-incomplete --keep-going -p --jobs 10 --latency-wait 120 --rerun-incomplete
+
