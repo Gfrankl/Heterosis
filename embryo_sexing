@@ -1,0 +1,125 @@
+#below is the code used to calculate both percent Y and X chromsome per sample
+
+library(data.table)
+library(DESeq2)
+library(ggplot2)
+library(ggrepel)
+library(tidyverse)
+library(janitor)
+
+dir = "/lustre/isaac/proj/UTK0171/gfrankl2/vytelle_embryos/counts"
+files = list.files(dir, "*ReadsPerGene.out.tab$", full.names = T)
+
+#construct counts matrix from STAR output
+countData = data.frame(fread(files[1]))[c(1,4)]
+for(i in 2:length(files)) {
+        countData = cbind(countData, data.frame(fread(files[i]))[4])
+}
+
+countData = countData[c(5:nrow(countData)),]
+colnames(countData) = c("GeneID", gsub(paste0(dir,"counts/"), "", files))
+colnames(countData) = gsub(".ReadsPerGene.out.tab", "",
+                           gsub("/lustre/isaac/proj/UTK0171/gfrankl2/vytelle_embryos/counts/", "",
+                           colnames(countData)))
+
+rownames(countData) = countData$GeneID
+countData = countData %>% 
+  select(-GeneID)
+  
+colnames(countData)
+
+#read in sample data
+sampledata = 
+  read_csv("/lustre/isaac/proj/UTK0171/gfrankl2/vytelle_embryos/vytelle_sampleData.csv") %>% 
+  arrange(individual_id)
+
+rownames(sampledata) <- sampledata$individual_id
+countData<- countData[, rownames(sampledata)]
+
+sampleData= subset(sampledata, select = -c(...1))
+
+#set factors and reference used for model 
+sampleData$individual_id = as.factor(sampleData$individual_id)
+sampleData$type = as.factor(sampleData$type)
+sampleData$embryo_collection_date = as.factor(sampleData$embryo_collection_date)
+sampleData$stage = as.factor(sampleData$stage)
+sampleData$grade = as.factor(sampleData$grade)
+sampleData$sire = as.factor(sampleData$sire)
+# Use relevel() to set adjacent purebred samples as reference
+sampleData$type = relevel(sampleData$type, ref = "PB")
+
+all(colnames(countData) %in% rownames(sampleData))
+setdiff(colnames(countData),rownames(sampleData))
+
+#build model and run for all genes in count data
+dds = DESeqDataSetFromMatrix(countData = countData, 
+colData = sampleData, design = ~ type + stage + grade + embryo_collection_date + sire)
+
+View(counts(dds))
+
+dds <- estimateSizeFactors(dds)
+dds <- DESeq(dds)
+resultsNames(dds)
+
+#build path to chromosome Y genes in reference (380 genes)
+chrY <- "NC_082638.1"
+gtf_path<-"/lustre/isaac/scratch/gfrankl2/angus2.0/genome/ars_2.0.gtf"
+column_gene_names <- "gene_id"
+
+chrY_genes <- rtracklayer::import(gtf_path) |> 
+  as.data.frame() |>
+  dplyr::filter(type == "gene") |>
+  dplyr::filter(seqnames == chrY) |> 
+  dplyr::pull(column_gene_names)
+
+#build dds count martirx for only Y genes
+dds_chrY <- dds[rownames(dds) %in% chrY_genes, ]
+
+chrY_total_counts <- colSums(counts(dds_chrY)) |>
+  as.data.frame() |>
+  tibble::rownames_to_column(var = "sample_name")
+colnames(chrY_total_counts) <- c("sample_name", "chrY_counts")
+
+total_counts <- colSums(counts(dds)) |>
+  as.data.frame() |>
+  tibble::rownames_to_column(var = "sample_name")
+colnames(total_counts) <- c("sample_name", "total_counts")
+
+#calculate a percentage Y chromsome value for each sample
+counts_sums <- dplyr::full_join(chrY_total_counts, total_counts, by = "sample_name") |>
+  dplyr::mutate(
+    percent_chrY = 100 * chrY_counts / total_counts)
+
+#plot samples in increasing order of %Y
+ggplot2::ggplot(counts_sums, ggplot2::aes(percent_chrY)) +
+  ggplot2::stat_ecdf(geom = "point") +
+  ggplot2::stat_ecdf(geom = "step")
+
+#run the same steps to calculate a percentage X chromosome value per sample
+chrX <- "NC_037357.1"
+gtf_path<-"/lustre/isaac/scratch/gfrankl2/angus2.0/genome/ars_2.0.gtf"
+column_gene_namesX <- "gene_id"
+
+chrX_genes <- rtracklayer::import(gtf_path) |> 
+  as.data.frame() |>
+  dplyr::filter(type == "gene") |>
+  dplyr::filter(seqnames == chrX) |> 
+  dplyr::pull(column_gene_namesX)
+
+dds_chrX <- dds[rownames(dds) %in% chrX_genes, ]
+
+chrX_total_counts <- colSums(counts(dds_chrX)) |>
+  as.data.frame() |>
+  tibble::rownames_to_column(var = "sample_name")
+colnames(chrX_total_counts) <- c("sample_name", "chrX_counts")
+
+counts_sumsX <- dplyr::full_join(chrX_total_counts, total_counts, by = "sample_name") |>
+  dplyr::mutate(
+    percent_chrX = 100 * chrX_counts / total_counts)
+
+ggplot2::ggplot(counts_sumsX, ggplot2::aes(percent_chrX)) +
+  ggplot2::stat_ecdf(geom = "point") +
+  ggplot2::stat_ecdf(geom = "step")
+
+
+
