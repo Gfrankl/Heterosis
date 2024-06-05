@@ -61,11 +61,12 @@ dds <- estimateSizeFactors(dds)
 dds <- DESeq(dds)
 resultsNames(dds)
 
-#build path to chromosome Y genes in reference (380 genes)
+#build path to chromosome Y genes in reference
 chrY <- "NC_082638.1"
 gtf_path<-"/lustre/isaac/scratch/gfrankl2/angus2.0/genome/ars_2.0.gtf"
 column_gene_names <- "gene_id"
 
+#380 genes
 chrY_genes <- rtracklayer::import(gtf_path) |> 
   as.data.frame() |>
   dplyr::filter(type == "gene") |>
@@ -100,6 +101,7 @@ chrX <- "NC_037357.1"
 gtf_path<-"/lustre/isaac/scratch/gfrankl2/angus2.0/genome/ars_2.0.gtf"
 column_gene_namesX <- "gene_id"
 
+#1589 genes
 chrX_genes <- rtracklayer::import(gtf_path) |> 
   as.data.frame() |>
   dplyr::filter(type == "gene") |>
