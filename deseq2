@@ -1,0 +1,234 @@
+#all code for differential gene expression analysis is below 
+
+library(data.table)
+library(DESeq2)
+library(apeglm)
+library(ggplot2)
+library(ggrepel)
+library(tidyverse)
+library(EnhancedVolcano)
+library(janitor)
+
+#set directory to locaiton of count data and file to STAR output
+dir = "/lustre/isaac/proj/UTK0171/gfrankl2/vytelle_embryos/counts"
+files = list.files(dir, "*ReadsPerGene.out.tab$", full.names = T)
+
+#read in count data
+countData = data.frame(fread(files[1]))[c(1,4)]
+for(i in 2:length(files)) {
+        countData = cbind(countData, data.frame(fread(files[i]))[4])
+}
+
+countData = countData[c(5:nrow(countData)),]
+colnames(countData) = c("GeneID", gsub(paste0(dir,"counts/"), "", files))
+colnames(countData) = gsub(".ReadsPerGene.out.tab", "",
+                           gsub("/lustre/isaac/proj/UTK0171/gfrankl2/vytelle_embryos/counts/", "",
+                           colnames(countData)))
+
+rownames(countData) = countData$GeneID
+countData = countData %>% 
+  select(-GeneID)
+  
+
+colnames(countData)
+
+#read in sample data
+sampledata = 
+  read_csv("/lustre/isaac/proj/UTK0171/gfrankl2/vytelle_embryos/gendermeta.csv") %>% 
+  arrange(individual_id)
+
+rownames(sampledata) <- sampledata$individual_id
+countData<- countData[, rownames(sampledata)]
+
+sampleData= subset(sampledata, select = -c(...1))
+
+#set columns of sample data that will be modeled as factors and purebred samples as the reference
+sampleData$individual_id = as.factor(sampleData$individual_id)
+sampleData$type = as.factor(sampleData$type)
+sampleData$embryo_collection_date = as.factor(sampleData$embryo_collection_date)
+sampleData$stage = as.factor(sampleData$stage)
+sampleData$grade = as.factor(sampleData$grade)
+sampleData$sire_breed = as.factor(sampleData$sire_breed)
+sampleData$embryo_sex = as.factor(sampleData$embryo_sex)
+# Use relevel() to set adjacent purebred samples as reference
+sampleData$type = relevel(sampleData$type, ref = "PB")
+
+all(colnames(countData) %in% rownames(sampleData))
+setdiff(colnames(countData),rownames(sampleData))
+
+dds = DESeqDataSetFromMatrix(countData = countData, 
+colData = sampleData, design = ~ type + stage + grade + embryo_collection_date + sire + embryo_sex)
+
+View(counts(dds))
+
+#filter dds for only genes with 10 or more counts across all samples 
+keep = rowSums(counts(dds)) >= 10
+dds_filtered = dds[keep,]
+
+dds_filtered <- estimateSizeFactors(dds_filtered)
+dds_filtered <- DESeq(dds_filtered)
+tests <- results(dds_filtered)
+
+resultsNames(dds_filtered)
+
+Heterosis_comparison_Type <- results(dds_filtered, name = "type_F1_vs_PB", alpha = 0.05)
+summary(Heterosis_comparison_Type)
+
+collection_date_res <- results(dds_filtered, name = "embryo_collection_date_12062023_vs_100623", alpha = 0.05)
+summary(collection_date_res)
+
+embryo_sex_res <- results(dds_filtered, name = "embryo_sex_male_vs_female", alpha = 0.05)
+summary(embryo_sex_res)
+
+F1_PBLFC = lfcShrink(dds_filtered, coef = "type_F1_vs_PB", 
+type="apeglm")
+
+plotMA(F1_PBLFC, alpha = 0.05, ylim=c(-6,6), 
+main = "MA-plot for the shrunken log2 fold changes\nType_F1_vs_PB")
+
+embryo_sexLFC = lfcShrink(dds_filtered, coef = "embryo_sex_male_vs_female", 
+type="apeglm")
+
+plotMA(embryo_sexLFC, alpha = 0.05, ylim=c(-6,6), 
+main = "MA-plot for the shrunken log2 fold changes\nembryo_sex_male_vs_female")
+
+collection_dateLFC = lfcShrink(dds_filtered, coef = "embryo_collection_date_12062023_vs_100623", 
+type="apeglm")
+
+plotMA(collection_dateLFC, alpha = 0.05, ylim=c(-6,6), 
+main = "MA-plot for the shrunken log2 fold changes\nembryo_collection_date_12062023_vs_100623")
+
+#faster than rlog transformation
+vsd = vst(dds_filtered)
+
+pcaDatF1vsPB = plotPCA(vsd, intgroup="type", 
+returnData=TRUE)
+percentVarPBvsF1 = round(100 * attr(pcaDatF1vsPB, "percentVar"))
+
+joinedpcadat = left_join(pcaDatF1vsPB, sampledata, by = c("name" = "individual_id")) %>%
+  mutate(breedcross=case_when(embryo_collection_date=="12062023" & sire_breed=="Angus" ~ "PB_Angus",
+                               embryo_collection_date=="12062023" & sire_breed=="Brahman" ~ "BRxAN",
+                               embryo_collection_date=="100623" & sire_breed=="Brahman" ~ "PB_Brahman",
+                               embryo_collection_date=="100623" & sire_breed=="Angus" ~ "ANxBR"))
+
+#PCA code color breedcross
+png("DGE_PCA_NEW-rlog.STAR.png", width=7, height=7, units = "in", res = 300)
+ggplot(joinedpcadat, aes(PC1, PC2, colour = breedcross)) + 
+geom_point(size = 2) + theme_bw() + 
+# scale_color_manual(values = c("blue", "red", "purple", "orange")) +
+ggtitle("Principal Component Analysis (PCA)", subtitle = "vsd transformation") +
+xlab(paste0("PC1: ",percentVarPBvsF1[1],"% variance")) +
+ylab(paste0("PC2: ",percentVarPBvsF1[2],"% variance"))
+
+# Testing to see if i can make it interactive
+#library(plotly)
+#ggplotly(p = ggplot2::last_plot())
+
+##PCA code color embryo sex
+png("DGE_PCA_NEW_SEX-rlog.STAR.png", width=7, height=7, units = "in", res = 300)
+ggplot(joinedpcadat, aes(PC1, PC2, colour = embryo_sex)) + 
+geom_point(size = 2) + theme_bw() + 
+# scale_color_manual(values = c("blue", "red", "purple", "orange")) +
+ggtitle("Principal Component Analysis (PCA)", subtitle = "vsd transformation") +
+xlab(paste0("PC1: ",percentVarPBvsF1[1],"% variance")) +
+ylab(paste0("PC2: ",percentVarPBvsF1[2],"% variance"))
+
+# Testing to see if i can make it interactive
+#library(plotly)
+#ggplotly(p = ggplot2::last_plot())
+
+#volcano plot
+data.frame(F1_PBLFC) %>%
+  filter( padj < 0.05, abs(log2FoldChange) > 1.0) %>%
+  view()
+
+pCutoff = 0.05
+FCcutoff = 1.0
+
+volcanoPBF1 <- EnhancedVolcano(data.frame(F1_PBLFC), 
+                lab = rownames(data.frame(F1_PBLFC)), 
+                x = 'log2FoldChange', 
+                y = 'padj',
+                xlab = bquote(~Log[2]~ 'fold change'), 
+                ylab = bquote(~-Log[10]~adjusted~italic(P)),
+                pCutoff = pCutoff, 
+                FCcutoff = FCcutoff, 
+                pointSize = 1.0, 
+                labSize = 2.0,
+                title = "Volcano plot", 
+                subtitle = "F1 vs PB",
+                caption = paste0('log2 FC cutoff: ',FCcutoff, '; p-value cutoff: ', pCutoff, '\nTotal = ', nrow(F1_PBLFC), 'variables'),
+                # legend=c('NS','Log2 FC','Adjusted p-value','Adjusted p-value & Log2 FC')),
+                legendPosition ='bottom', 
+                legendLabSize = 14, 
+                legendIconSize = 5.0)
+
+volcanoPBF1
+
+genelist=as.data.frame(F1_PBLFC) %>% filter(padj<0.05, abs(log2FoldChange)>0.58)
+
+#extract Y chromsome genes from the refernce gtf
+chrY <- "NC_082638.1"
+gtf_path<-"/lustre/isaac/scratch/gfrankl2/angus2.0/genome/ars_2.0.gtf"
+column_gene_names <- "gene_id"
+chrY_genes <- rtracklayer::import(gtf_path) |> 
+  as.data.frame() |>
+  dplyr::filter(type == "gene") |>
+  dplyr::filter(seqnames == chrY) |> 
+  dplyr::pull(column_gene_names)
+
+#extract X chromsome genes from the refernce gtf
+chrX <- "NC_037357.1"
+gtf_path<-"/lustre/isaac/scratch/gfrankl2/angus2.0/genome/ars_2.0.gtf"
+column_gene_namesX <- "gene_id"
+chrX_genes <- rtracklayer::import(gtf_path) |> 
+  as.data.frame() |>
+  dplyr::filter(type == "gene") |>
+  dplyr::filter(seqnames == chrX) |> 
+  dplyr::pull(column_gene_namesX)
+
+#testing only autosomal chromosomes 
+#subset dds for only genes not included in X and Y gene lists 
+sex_chrom_genes <- c(chrX_genes,chrY_genes)
+dds_auto<- dds_filtered[setdiff(rownames(dds_filtered), sex_chrom_genes),]
+View(counts(dds_auto))
+
+Heterosis_comparison_Type_auto <- results(dds_auto, name = "type_F1_vs_PB", alpha = 0.05)
+summary(Heterosis_comparison_Type_auto)
+
+F1_PBLFC_auto = lfcShrink(dds_auto, coef = "type_F1_vs_PB", 
+type="apeglm")
+
+plotMA(F1_PBLFC_auto, alpha = 0.05, ylim=c(-6,6), 
+main = "MA-plot for the shrunken log2 fold changes autosomal\nType_F1_vs_PB")
+
+vsd_auto = vst(dds_auto)
+
+pcaDatF1vsPB_auto = plotPCA(vsd_auto, intgroup="type", 
+returnData=TRUE)
+percentVarPBvsF1_auto = round(100 * attr(pcaDatF1vsPB_auto, "percentVar"))
+
+joinedpcadat_auto = left_join(pcaDatF1vsPB_auto, sampleData, by = c("name" = "individual_id"))%>%
+  mutate(breedcross=case_when(embryo_collection_date=="12062023" & sire_breed=="Angus" ~ "PB_Angus",
+                               embryo_collection_date=="12062023" & sire_breed=="Brahman" ~ "BRxAN",
+                               embryo_collection_date=="100623" & sire_breed=="Brahman" ~ "PB_Brahman",
+                               embryo_collection_date=="100623" & sire_breed=="Angus" ~ "ANxBR"))
+
+png("DGE_PCA_auto-rlog.STAR.png", width=7, height=7, units = "in", res = 300)
+ggplot(joinedpcadat_auto, aes(PC1, PC2, colour = breedcross)) + 
+geom_point(size = 2) + theme_bw() + 
+# scale_color_manual(values = c("blue", "red", "purple", "orange")) +
+ggtitle("Principal Component Analysis (PCA)", subtitle = "vsd transformation") +
+xlab(paste0("PC1: ",percentVarPBvsF1_auto[1],"% variance")) +
+ylab(paste0("PC2: ",percentVarPBvsF1_auto[2],"% variance"))
+
+png("DGE_PCA_auto_sex-rlog.STAR.png", width=7, height=7, units = "in", res = 300)
+ggplot(joinedpcadat_auto, aes(PC1, PC2, colour = embryo_sex)) + 
+geom_point(size = 2) + theme_bw() + 
+# scale_color_manual(values = c("blue", "red", "purple", "orange")) +
+ggtitle("Principal Component Analysis (PCA)", subtitle = "vsd transformation") +
+xlab(paste0("PC1: ",percentVarPBvsF1_auto[1],"% variance")) +
+ylab(paste0("PC2: ",percentVarPBvsF1_auto[2],"% variance"))
+
+genelist_auto=as.data.frame(F1_PBLFC_auto) %>% filter(padj<0.05, abs(log2FoldChange)>0.58)
+genelist_auto_more=as.data.frame(Heterosis_comparison_Type_auto) %>% filter(padj<0.05, abs(log2FoldChange)>0.58)
